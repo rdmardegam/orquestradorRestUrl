@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -189,19 +190,44 @@ public class OrquestradorService {
 	}
 	
 	private void ofuscBuild(Set<OfuscadorDTO> listOfuscador,EncodingTypeEnum encodingType) {
+		// Aqui seriam os MS fingindo ser encoders externos
 		Base64.Encoder encoder = Base64.getEncoder();
 	    Base64.Decoder decoder = Base64.getDecoder();
 	    
 	    // AQUI DEVE SER CHAMADO O SERVIÇO DE DECODE OU ENCODE APENAS PARA OS VALORES QUE NÃO ESTÃO PREVIAMENTE MAPEADOS
-	    listOfuscador.forEach(e -> {
-	        if (encodingType == EncodingTypeEnum.ENCODE && e.getValueEncod() == null) {
-	            String encodedValue = encoder.encodeToString(((String) e.getValueDecoded()).getBytes());
-	            e.setValueEncod(encodedValue);
-	        } else if (encodingType == EncodingTypeEnum.DECODE && e.getValueDecoded() == null) {
-	            String decodedValue = new String(decoder.decode(((String) e.getValueEncod()).getBytes()));
-	            e.setValueDecoded(decodedValue);
-	        }
-	    });
+	    if(encodingType == EncodingTypeEnum.ENCODE) {
+	    	// Pesquisa os elementos encoded que não temos a referencia e obtem a lista que devera ser chamada um microserviço de encoded
+	    	Set<OfuscadorDTO> listOfuscadorToEncode = listOfuscador.stream().filter(e->e.getValueEncod() == null).collect(Collectors.toSet());
+	    	
+	    	// Chama aqui e pega o retorno ex
+	    	// listOfuscadorToEncode = encode(listOfuscadorToEncode)
+	    	
+	    	// aplica o retorno no campo set original, aqui estamos fingindo
+	    	listOfuscadorToEncode.stream()
+			.filter(e->e.getValueEncod() == null)
+			.forEach(e->e.setValueEncod(encoder.encodeToString(((String) e.getValueDecoded()).getBytes())));
+	    	
+	    } else if(encodingType == EncodingTypeEnum.DECODE) {
+	    	// Pesquisa os elementos decoded que não temos a referencia e obtem a lista que devera ser chamada um microserviço de decoded
+	    	Set<OfuscadorDTO> listOfuscadorToDecode = listOfuscador.stream().filter(e->e.getValueDecoded() == null).collect(Collectors.toSet());
+	    	
+	    	// Chama aqui e pega o retorno ex
+	    	// listOfuscadorToDecode = decode(listOfuscadorToDecode)
+	    	
+	    	// aplica o retorno no campo set original, aqui estamos fingindo
+	    	listOfuscadorToDecode.stream()
+			.filter(e->e.getValueDecoded() == null)
+			.forEach(e->e.setValueDecoded(new String(decoder.decode(((String) e.getValueEncod()).getBytes()))));
+	    } 
+//	    listOfuscador.forEach(e -> {
+//	        if (encodingType == EncodingTypeEnum.ENCODE && e.getValueEncod() == null) {
+//	            String encodedValue = encoder.encodeToString(((String) e.getValueDecoded()).getBytes());
+//	            e.setValueEncod(encodedValue);
+//	        } else if (encodingType == EncodingTypeEnum.DECODE && e.getValueDecoded() == null) {
+//	            String decodedValue = new String(decoder.decode(((String) e.getValueEncod()).getBytes()));
+//	            e.setValueDecoded(decodedValue);
+//	        }
+//	    });
 	}
 	
 	private void applyEncodeOrDecodeByOfuscador(List<Map<String, Object>> listMap, Set<OfuscadorDTO> listOfuscador, EncodingTypeEnum encodingType) {
