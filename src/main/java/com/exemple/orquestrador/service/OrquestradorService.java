@@ -1,5 +1,6 @@
 package com.exemple.orquestrador.service;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
@@ -28,6 +29,8 @@ import com.exemple.orquestrador.enums.EncodingTypeEnum;
 import com.exemple.orquestrador.exception.ApiErrorException;
 import com.fasterxml.jackson.core.JacksonException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.netty.handler.timeout.ReadTimeoutException;
@@ -267,19 +270,29 @@ public class OrquestradorService {
 	private String encode(String json, Set<OfuscadorDTO> listOfuscador, boolean externalCall) {
 	    if (externalCall && isValidJson(json)) {
 	        try {
-	            Map<String, Object> mapBody = mapper.readValue(json, HashMap.class);
 	            
-	            Set<OfuscadorDTO> listOfuscadorDecoded = this.findValuesToEncodeOrDecode(Arrays.asList(mapBody), fildsToEncodeDecode, EncodingTypeEnum.ENCODE);
+	        	List<Map<String, Object>> listJsonMaps = new ArrayList<>();
+	        	boolean isJsonRootArray = false;
+	        	
+	        	JsonNode rootJson = mapper.readTree(json);
+	        	if(rootJson.isArray()) {
+	        		listJsonMaps = mapper.readValue(json,  new TypeReference<List<Map<String, Object>>>(){});
+	        		isJsonRootArray = true;
+	        	} else {
+	        		listJsonMaps.add(mapper.readValue(json, HashMap.class));	
+	        	}
+	            
+	            Set<OfuscadorDTO> listOfuscadorDecoded = this.findValuesToEncodeOrDecode(listJsonMaps, fildsToEncodeDecode, EncodingTypeEnum.ENCODE);
 	            
 	            listOfuscador = joinOfuscadorList(listOfuscador, listOfuscadorDecoded);
 	            
 	            ofuscBuild(listOfuscador, EncodingTypeEnum.ENCODE);
 	            
-	            applyEncodeOrDecodeByOfuscador(Arrays.asList(mapBody), listOfuscador, EncodingTypeEnum.ENCODE);
+	            applyEncodeOrDecodeByOfuscador(listJsonMaps, listOfuscador, EncodingTypeEnum.ENCODE);
 	            
 	            System.out.println(listOfuscador);
 	            
-	            return mapper.writeValueAsString(mapBody);
+	            return mapper.writeValueAsString(isJsonRootArray?listJsonMaps:listJsonMaps.get(0));
 	        } catch (JsonProcessingException e) {
 	            // Caso ocorra algum erro
 	            throw new RuntimeException("Erro ao realizar encoding do JSON.");
@@ -287,6 +300,10 @@ public class OrquestradorService {
 	    }
 	    // Retorno padrão, caso a condição acima não seja atendida
 	    return json;
+	}
+	
+	private void teste() {
+		
 	}
 	
 	private Set<OfuscadorDTO> joinOfuscadorList(Set<OfuscadorDTO> listOfuscador, Set<OfuscadorDTO> listOfuscadorDecoded) {
