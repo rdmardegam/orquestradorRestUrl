@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.LinkedMultiValueMap;
@@ -24,10 +25,11 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 
+import com.exemple.orquestrador.dto.ApiResponseDTO;
 import com.exemple.orquestrador.dto.OfuscadorDTO;
 import com.exemple.orquestrador.enums.EncodingTypeEnum;
 import com.exemple.orquestrador.exception.ApiErrorException;
-import com.fasterxml.jackson.core.JacksonException;
+import com.exemple.orquestrador.util.JsonUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -50,7 +52,7 @@ public class OrquestradorService {
         this.mapper = mapper;
     }
 		
-    public String callApi(String apiUrl, HttpMethod httpMethod, Map<String, Object> queryParams, Map<String, Object> paths,
+    public ApiResponseDTO callApi(String apiUrl, HttpMethod httpMethod, Map<String, Object> queryParams, Map<String, Object> paths,
     		Map<String, Object> body, Map<String, Object> headers, boolean externalCall) {
 
     	// Aplica Encode em body, query e path se necessario
@@ -66,27 +68,31 @@ public class OrquestradorService {
     	MultiValueMap<String, String> queryParamsToSend = this.prepareQueryParams(queryParams); 
     	
     	// Executa api
-    	String jsonRetorno = this.executeApi(httpMethod,urlToCall,queryParamsToSend,headersToSend,body);
+    	ApiResponseDTO apiResponse = this.executeApi(httpMethod,urlToCall,queryParamsToSend,headersToSend,body);
     	
     	// Aplica encode no body de retorno
-    	return this.encode(jsonRetorno, listOfuscador, externalCall);
+    	String jsonRetorno =  this.encode(apiResponse.getBody(), listOfuscador, externalCall);
+    	
+    	apiResponse.setBody(jsonRetorno);
+    	
+    	return apiResponse;
     } 
 	
 
-	private String executeApi(HttpMethod httpMethod, String urlToCall, MultiValueMap<String, String> queryParamsToSend,
+	private ApiResponseDTO executeApi(HttpMethod httpMethod, String urlToCall, MultiValueMap<String, String> queryParamsToSend,
 			HttpHeaders headersToSend, Map<String, Object> body) {
+		
+			ResponseEntity<String> responseApi = webClient.method(httpMethod)
+					.uri(uriBuilder -> uriBuilder.path(urlToCall).queryParams(queryParamsToSend).build())
+					.headers(httpHeaders -> httpHeaders.addAll(headersToSend))
+					.body(body != null ? BodyInserters.fromValue(body) : null).retrieve()
+					.onStatus(HttpStatus::isError, response -> response.bodyToMono(String.class).flatMap(errorBody -> {
+						throw new ApiErrorException(response.statusCode(), errorBody);
+					})).toEntity(String.class)
+					.doOnError(throwable -> handleApiError(throwable))
+					.block();
 
-		return webClient.method(httpMethod)
-				.uri(uriBuilder -> uriBuilder.path(urlToCall).queryParams(queryParamsToSend).build())
-				.headers(httpHeaders -> httpHeaders.addAll(headersToSend))
-				.body(body != null ? BodyInserters.fromValue(body) : null)
-				.retrieve()
-				.onStatus(HttpStatus::isError, response -> response.bodyToMono(String.class).flatMap(errorBody -> {
-					throw new ApiErrorException(response.statusCode(), errorBody);
-				}))
-				.bodyToMono(String.class)
-				.doOnError(throwable ->handleApiError(throwable))
-				.block();
+			return new ApiResponseDTO(responseApi.getBody(), responseApi.getStatusCode(), responseApi.getHeaders());
 	}
 	
 	
@@ -268,7 +274,7 @@ public class OrquestradorService {
 	}
 	
 	private String encode(String json, Set<OfuscadorDTO> listOfuscador, boolean externalCall) {
-	    if (externalCall && isValidJson(json)) {
+	    if (externalCall && JsonUtil.isValidJson(json)) {
 	        try {
 	            
 	        	List<Map<String, Object>> listJsonMaps = new ArrayList<>();
@@ -331,12 +337,4 @@ public class OrquestradorService {
 	    }
 	}
 	
-	public boolean isValidJson(String json) {
-	    try {
-	        mapper.readTree(json);
-	    } catch (JacksonException e) {
-	        return false;
-	    }
-	    return true;
-	}
 }

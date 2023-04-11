@@ -8,7 +8,7 @@ public class ApiErrorException extends RuntimeException {
 	private final String errorBody;
 	
 	public ApiErrorException(HttpStatus httpStatus, String errorBody) {
-		super("API externa retornou erro " + httpStatus);
+		super("Api externa: " + httpStatus);
 		this.statusCode = httpStatus;
 		this.errorBody = errorBody;
 	}

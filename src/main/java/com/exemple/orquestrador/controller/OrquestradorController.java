@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.HandlerMapping;
 
+import com.exemple.orquestrador.dto.ApiResponseDTO;
 import com.exemple.orquestrador.service.OrquestradorService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -48,12 +49,10 @@ public class OrquestradorController {
 	    boolean isCallExternal = requestHeaders.get("x-external") != null && "true".equals(requestHeaders.get("x-external")) ? true : false;  
 	    
 	    // Chama url Externa
-	    String jsonValue = orquestradorService.callApi(requestUrl, httpMethod, requestQueryParams, requestPaths, requestBody, requestHeaders, isCallExternal);
+	    ApiResponseDTO apiResponse = orquestradorService.callApi(requestUrl, httpMethod, requestQueryParams, requestPaths, requestBody, requestHeaders, isCallExternal);
 	    
 	    // Monta headerResposta
-	    HttpHeaders responseHeaders = new HttpHeaders();
-	    responseHeaders.set("Content-Type", "application/json");
-	    ResponseEntity<String> responseEntity = new ResponseEntity<String>(jsonValue, responseHeaders, HttpStatus.OK);
+	    ResponseEntity<String> responseEntity = new ResponseEntity<String>(apiResponse.getBody(), apiResponse.getHeaders(), apiResponse.getStatus());
 	    
 	    return responseEntity;
 	}
