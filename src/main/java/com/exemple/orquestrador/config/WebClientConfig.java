@@ -17,9 +17,10 @@ public class WebClientConfig {
 
 	@Bean
 	public WebClient webClient(ObjectMapper mapper) {
-		return WebClient.builder().baseUrl("http://localhost:3001")
+	
+		return WebClient.builder().baseUrl("http://localhost:9090")
 				.clientConnector(new ReactorClientHttpConnector(	
-				HttpClient.create().responseTimeout(Duration.ofSeconds(1)))).build();
+				HttpClient.create().responseTimeout(Duration.ofSeconds(10)))).build();
 	}
 	
 }
