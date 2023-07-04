@@ -1,5 +1,8 @@
 package com.exemple.orquestrador.service;
 
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -24,6 +27,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.exemple.orquestrador.dto.ApiResponseDTO;
 import com.exemple.orquestrador.dto.OfuscadorDTO;
@@ -82,8 +86,20 @@ public class OrquestradorService {
 	private ApiResponseDTO executeApi(HttpMethod httpMethod, String urlToCall, MultiValueMap<String, String> queryParamsToSend,
 			HttpHeaders headersToSend, Map<String, Object> body) {
 		
+				 URI uri = UriComponentsBuilder.fromUriString("http://localhost:9090"+urlToCall)
+						 .encode()
+						 .queryParams(queryParamsToSend)
+						 .build()
+						 .toUri();
+	
+		
 			ResponseEntity<String> responseApi = webClient.method(httpMethod)
-					.uri(uriBuilder -> uriBuilder.path(urlToCall).queryParams(queryParamsToSend).build())
+//					.uri(uriBuilder -> 
+//						 uriBuilder
+//						 .path(urlToCall)
+//						 .queryParams(queryParamsToSend).build()
+//					)
+					.uri(uri)
 					.headers(httpHeaders -> httpHeaders.addAll(headersToSend))
 					.body(body != null ? BodyInserters.fromValue(body) : null).retrieve()
 					.onStatus(HttpStatus::isError, response -> response.bodyToMono(String.class).flatMap(errorBody -> {
@@ -97,6 +113,7 @@ public class OrquestradorService {
 	
 	
 	private void handleApiError(Throwable throwable) {
+		throwable.printStackTrace();
 		if (throwable instanceof ApiErrorException) {
 			throw (ApiErrorException) throwable;
 		}
@@ -133,7 +150,21 @@ public class OrquestradorService {
 
 	private MultiValueMap<String, String> prepareQueryParams(Map<String, Object> queryParams) {
 		MultiValueMap<String, String> multiValueQueryParam = new LinkedMultiValueMap<>();
-		queryParams.forEach((key, value) -> multiValueQueryParam.add(key, value.toString()));
+		// Aplica encoding para os campos funcionarem corretamente
+		
+		queryParams.forEach((key, value) ->  {
+			//multiValueQueryParam.add(key, UriUtils.encode(value.toString(), StandardCharsets.ISO_8859_1));
+			if(key.equals("nome")) {
+				//multiValueQueryParam.add(key, value.toString()+ "XXX%2B%2BXXX");
+				multiValueQueryParam.add(key, URLEncoder.encode("value+with+plus", StandardCharsets.UTF_8));
+			} else {
+				multiValueQueryParam.add(key, value.toString() ); 
+			}
+			
+		});
+		
+		//queryParams.forEach((key, value) ->  multiValueQueryParam.add(key, value.toString()));
+		
 		return multiValueQueryParam;
 	}
 	
